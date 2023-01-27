@@ -3,12 +3,11 @@ import numpy as np
 import pyautogui
 import win32api, win32con, win32gui
 import cv2
-import math
 import time
 import torch
-from PIL import Image
+import time
 
-model = torch.hub.load('ultralytics/yolov5', 'custom', path='model/best.pt')
+model = torch.hub.load('ultralytics/yolov5', 'custom', path='model/best-640.pt')
 class_names = [ 'counter-terrorist', 'terrorist' ]
 opponent = 'terrorist'
 opponent_color = (255, 0, 0)
@@ -20,14 +19,13 @@ def load_frame():
     region = rect[0], rect[1] + 27, rect[2] - rect[0], rect[3] - rect[1] - 27
 
     frame = np.array(pyautogui.screenshot(region=region))
-    frame = cv2.resize(frame, (1280, 720))
+    frame = cv2.resize(frame, (640, 360))
     return frame
 
 def process_frame(frame):
-    width = 1280
-    height = 720
-    top_padding = 280 # (1280 - height) / 2
-    padded_frame = np.zeros((1280, 1280, 3), dtype=np.uint8)
+    height, width = frame.shape[:2]
+    top_padding = 140 # (640 - height) / 2
+    padded_frame = np.zeros((640, 640, 3), dtype=np.uint8)
     padded_frame.fill(255)
     padded_frame[top_padding:top_padding+height, :width] = frame
     return padded_frame
@@ -53,12 +51,14 @@ if __name__ == "__main__":
     while True:
         frame = load_frame()
         frame = process_frame(frame)
-        width, height, _ = frame.shape
+        height, width = frame.shape[:2]
         
         display_frame = cv2.resize(frame, (500, 500))
 
         # Detection
+        start_time = time.time()
         results = model(frame)
+        print(time.time() - start_time)
         rl = results.xyxy[0].tolist()
 
         # Check every detected object
@@ -75,7 +75,7 @@ if __name__ == "__main__":
                 else:
                     color = ally_color
 
-                cv2.rectangle(display_frame, (int(x1/1280*500), int(y1/1280*500)), (int(x2/1280*500), int(y2/1280*500)), color, 1)
+                cv2.rectangle(display_frame, (int(x1/640*500), int(y1/640*500)), (int(x2/640*500), int(y2/640*500)), color, 1)
 
         print("Detected:", len(detected_boxes), "enemies.")
         
@@ -86,7 +86,7 @@ if __name__ == "__main__":
 
             x1, y1, x2, y2 = detected_boxes[closest_at]
             x = int((x1 + x2) / 2 - width / 2)
-            y = int((y1 + y2) / 2 - height / 2) - (y2 - y1) * 0.45 # For head shot
+            y = int((y1 + y2) / 2 - height / 2) - (y2 - y1) * 0.43 # For head shot
 
             scale = 1.7
             x = int(x * scale)
