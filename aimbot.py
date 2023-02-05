@@ -7,11 +7,13 @@ import time
 import torch
 import time
 
-model = torch.hub.load('ultralytics/yolov5', 'custom', path='model/best-640.pt')
 class_names = [ 'counter-terrorist', 'terrorist' ]
 opponent = 'terrorist'
 opponent_color = (255, 0, 0)
 ally_color = (0, 128, 255)
+model_path = 'best-640.pt'
+image_size = 640
+scale_map = { 1280:1.7, 640:4.5, 320:8 }
 
 def load_frame():
     hwnd = win32gui.FindWindow(None, 'Counter-Strike: Global Offensive - Direct3D 9')
@@ -19,13 +21,14 @@ def load_frame():
     region = rect[0], rect[1] + 27, rect[2] - rect[0], rect[3] - rect[1] - 27
 
     frame = np.array(pyautogui.screenshot(region=region))
-    frame = cv2.resize(frame, (640, 360))
+
+    frame = cv2.resize(frame, (image_size, int(image_size / 16 * 9)))
     return frame
 
 def process_frame(frame):
     height, width = frame.shape[:2]
-    top_padding = 140 # (640 - height) / 2
-    padded_frame = np.zeros((640, 640, 3), dtype=np.uint8)
+    top_padding = int((image_size - height) / 2)
+    padded_frame = np.zeros((image_size, image_size, 3), dtype=np.uint8)
     padded_frame.fill(255)
     padded_frame[top_padding:top_padding+height, :width] = frame
     return padded_frame
@@ -34,20 +37,24 @@ def is_opponent(label):
     return class_names[label] == opponent
 
 def find_closest(detected_boxes):
-    min = 99999
+    max = 0
     closest_at = 0
     for i, box in enumerate(detected_boxes):
         x1, _, x2, _ = box
         w = int(x1 - x2)
 
-        if w < min:
+        if w > max:
             closest_at = i
+            max = w
 
         return closest_at
 
 if __name__ == "__main__":
     opponent = sys.argv[1]
-    
+    image_size = int(sys.argv[2])
+    model_path = "model/best-%d.pt" % image_size
+    model = torch.hub.load('ultralytics/yolov5', 'custom', path=model_path)
+
     while True:
         frame = load_frame()
         frame = process_frame(frame)
@@ -75,7 +82,7 @@ if __name__ == "__main__":
                 else:
                     color = ally_color
 
-                cv2.rectangle(display_frame, (int(x1/640*500), int(y1/640*500)), (int(x2/640*500), int(y2/640*500)), color, 1)
+                cv2.rectangle(display_frame, (int(x1/image_size*500), int(y1/image_size*500)), (int(x2/image_size*500), int(y2/image_size*500)), color, 1)
 
         print("Detected:", len(detected_boxes), "enemies.")
         
@@ -88,7 +95,7 @@ if __name__ == "__main__":
             x = int((x1 + x2) / 2 - width / 2)
             y = int((y1 + y2) / 2 - height / 2) - (y2 - y1) * 0.43 # For head shot
 
-            scale = 1.7
+            scale = scale_map[image_size]
             x = int(x * scale)
             y = int(y * scale)
             # Move mouse and shoot
