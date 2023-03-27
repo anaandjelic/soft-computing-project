@@ -18,3 +18,7 @@ Here's an example of how to run the script:
 ```python
 python aimbot.py terrorist 640
 ```
+
+Demo
+-------------
+https://user-images.githubusercontent.com/100787946/228046438-ec855c9a-a754-434b-8eae-9be5f05917a3.mp4
